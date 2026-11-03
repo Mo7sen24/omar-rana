@@ -289,7 +289,7 @@ function tick(){var s=Math.max(0,Math.floor((T-new Date())/1000));$('d').textCon
 
 var ans='yes',bs=document.querySelectorAll('.ch button');
 bs.forEach(function(b){b.addEventListener('click',function(){ans=b.dataset.v;bs.forEach(function(x){x.setAttribute('aria-pressed',x===b)})})});
-var SHEET_URL='',busy=false,sent=null; /* paste the Google Apps Script Web App URL between the quotes */
+var SHEET_URL='https://script.google.com/macros/s/AKfycbwbLar5odFKM7MiIphfj3aWTBv8u-T3Yo28TsDUDi8Vcg8lGFcI-9xFSZcHwR9KSTfuXg/exec',busy=false,sent=null; /* paste the Google Apps Script Web App URL between the quotes */
 function tmText(){var n=sent.n;return lang==='ar'?(sent.a==='yes'?n+'، ننتظر الاحتفال معك بفارغ الصبر.':n+'، سنفتقدك. شكرًا لإعلامنا.'):(sent.a==='yes'?n+', we can’t wait to celebrate with you.':n+', we’ll miss you. Thank you for letting us know.')}
 function submitRsvp(o){
   if(!SHEET_URL){var m=lang==='ar'?('تأكيد حضور: '+o.name+(o.attending==='Yes'?' - سيحضر، عدد الحضور: '+o.guests+'.':' - يعتذر عن الحضور.')+(o.note?' رسالة: '+o.note:'')):('RSVP: '+o.name+(o.attending==='Yes'?' will attend with '+o.guests+' guest(s).':' cannot attend.')+(o.note?' Note: '+o.note:''));
