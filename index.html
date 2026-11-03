@@ -147,6 +147,8 @@ html[lang="ar"] .msg{line-height:2}
 .done .sep.on .dw .s{opacity:1;stroke-dashoffset:0;transition:opacity .01s linear calc(var(--b) + var(--d,0)*1s + .2s),stroke-dashoffset 1.5s cubic-bezier(.45,.05,.25,1) calc(var(--b) + var(--d,0)*1s + .2s),fill-opacity 1s ease calc(var(--b) + var(--d,0)*1s + 1.2s)}
 .done .sep.on .dw .fg{fill-opacity:.22}.done .sep.on .dw .fw{fill-opacity:.14}
 .done .sep.on .dw .pop{opacity:1;transform:none;transition:opacity .6s ease calc(var(--b) + var(--d,0)*1s + .2s),transform .7s cubic-bezier(.34,1.56,.64,1) calc(var(--b) + var(--d,0)*1s + .2s)}
+#err2{display:none;color:#B5533C;font-size:.85rem;margin-bottom:8px}
+.fm .pill:disabled{opacity:.6;cursor:default}
 </style>
 </head>
 <body>
@@ -198,10 +200,11 @@ html[lang="ar"] .msg{line-height:2}
       <p class="hd" id="ttl" data-i="ttl">Will you join us?</p>
       <div class="fm">
         <div id="fb">
-          <label><span data-i="yn">Your name</span><input id="name" type="text" autocomplete="name" data-p="fn" placeholder="Full name"></label>
+          <label><span data-i="yn">Your name</span><input id="name" type="text" autocomplete="name" data-p="fn" placeholder="Full name" maxlength="100"></label>
           <div class="ch" role="group" aria-label="Attendance"><button type="button" data-v="yes" aria-pressed="true" data-i="yes">Joyfully accept</button><button type="button" data-v="no" aria-pressed="false" data-i="no">Sadly decline</button></div>
           <label><span data-i="ng">Number of guests</span><select id="gs"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
-          <label><span data-i="nn">A note for the couple (optional)</span><textarea id="nt" rows="2"></textarea></label>
+          <label><span data-i="nn">A note for the couple (optional)</span><textarea id="nt" rows="2" maxlength="500"></textarea></label>
+          <p id="err2" data-i="err2"></p>
           <p id="err" data-i="err">Please add your name so we know who is replying.</p>
           <button class="pill" type="button" id="send" data-i="send">Send reply</button>
         </div>
@@ -286,23 +289,31 @@ function tick(){var s=Math.max(0,Math.floor((T-new Date())/1000));$('d').textCon
 
 var ans='yes',bs=document.querySelectorAll('.ch button');
 bs.forEach(function(b){b.addEventListener('click',function(){ans=b.dataset.v;bs.forEach(function(x){x.setAttribute('aria-pressed',x===b)})})});
+var SHEET_URL='',busy=false,sent=null; /* paste the Google Apps Script Web App URL between the quotes */
+function tmText(){var n=sent.n;return lang==='ar'?(sent.a==='yes'?n+'، ننتظر الاحتفال معك بفارغ الصبر.':n+'، سنفتقدك. شكرًا لإعلامنا.'):(sent.a==='yes'?n+', we can’t wait to celebrate with you.':n+', we’ll miss you. Thank you for letting us know.')}
+function submitRsvp(o){
+  if(!SHEET_URL){var m=lang==='ar'?('تأكيد حضور: '+o.name+(o.attending==='Yes'?' - سيحضر، عدد الحضور: '+o.guests+'.':' - يعتذر عن الحضور.')+(o.note?' رسالة: '+o.note:'')):('RSVP: '+o.name+(o.attending==='Yes'?' will attend with '+o.guests+' guest(s).':' cannot attend.')+(o.note?' Note: '+o.note:''));
+    window.open('https://wa.me/'+WA+'?text='+encodeURIComponent(m),'_blank');return Promise.resolve()}
+  var ctl=window.AbortController?new AbortController():null,t=setTimeout(function(){if(ctl)ctl.abort()},15000);
+  return fetch(SHEET_URL,{method:'POST',mode:'no-cors',body:new URLSearchParams(o),signal:ctl?ctl.signal:undefined}).then(function(){clearTimeout(t)},function(e){clearTimeout(t);throw e})}
 $('send').addEventListener('click',function(){
-  var n=$('name').value.trim();
-  if(!n){$('err').style.display='block';return}
-  $('err').style.display='none';
-  var g=$('gs').value,nv=$('nt').value,msg=lang==='ar'?('تأكيد حضور: '+n+(ans==='yes'?' - سيحضر، عدد الحضور: '+g+'.':' - يعتذر عن الحضور.')+(nv?' رسالة: '+nv:'')):('RSVP: '+n+(ans==='yes'?' will attend with '+g+' guest(s).':' cannot attend.')+(nv?' Note: '+nv:''));
-  window.open('https://wa.me/'+WA+'?text='+encodeURIComponent(msg),'_blank');
-  $('tm').textContent=lang==='ar'?(ans==='yes'?n+'، ننتظر الاحتفال معك بفارغ الصبر.':n+'، سنفتقدك. شكرًا لإعلامنا.'):(ans==='yes'?n+', we can’t wait to celebrate with you.':n+', we’ll miss you. Thank you for letting us know.');
-  $('fb').style.display='none';$('ttl').style.display='none';$('ty').style.display='block';
+  if(busy)return;var n=$('name').value.trim().slice(0,100);
+  if(!n){$('err2').style.display='none';$('err').style.display='block';return}
+  $('err').style.display='none';$('err2').style.display='none';
+  var btn=$('send'),att=ans;
+  var o={name:n,attending:att==='yes'?'Yes':'No',guests:att==='yes'?$('gs').value:'0',note:$('nt').value.trim().slice(0,500),lang:lang};
+  busy=true;btn.disabled=true;btn.textContent=D[lang].sending;
+  submitRsvp(o).then(function(){sent={n:n,a:att};$('tm').textContent=tmText();$('fb').style.display='none';$('ttl').style.display='none';$('ty').style.display='block'},
+    function(){$('err2').style.display='block'}).then(function(){busy=false;btn.disabled=false;btn.textContent=D[lang].send});
 });
 
 var D={"en": {"title": "Omar & Rana – Wedding Invitation", "sw": "عربي", "names": "Omar <span>&amp;</span> Rana", "scr": "Scroll", "inv": "You’re invited", "op": "Open Invitation", "sk": "Skip", "kk": "We’re getting married!", "dt": "Tuesday · December 1, 2026", "sub1": "Together with their families,<br>invite you to celebrate their wedding.", "sd": "Save the date", "bigd": "1", "mon": "December 2026", "tm1": "Tuesday · 6:30 PM", "d1": "Days", "h1": "Hours", "cm": "Min", "s1": "Sec", "vn": "The venue", "vname": "Air Force House", "vcity": "Hayah Hall", "maps": "Open in Maps", "dc": "Dress code", "dcs": "Classic elegant", "dcsub": "Classic colors are welcome", "day": "The day", "sch": "Schedule", "t1": "6:30 PM", "t2": "7:00 PM", "t3": "8:00 PM", "t4": "9:00 PM", "t5": "11:00 PM", "a1": "Arrival", "a2": "Ceremony", "a3": "Cocktails", "a4": "Dinner", "a5": "Dancing", "ttl": "Will you join us?", "yn": "Your name", "fn": "Full name", "yes": "Joyfully accept", "no": "Sadly decline", "ng": "Number of guests", "nn": "A note for the couple (optional)", "err": "Please add your name so we know who is replying.", "send": "Send reply", "ty": "Thank you", "nt": "A note from us", "wl": "With all our love", "lm1": "Out of all the places we could have been, we found each other, and everything ordinary became beautiful.", "lm2": "Thank you for being part of the story that brought us here, and for standing beside us as we begin the next chapter.", "lm3": "Your love is the greatest gift we could ask for. We can’t wait to celebrate with you.", "nh": "Home", "nd": "Date", "nv": "Venue", "ns": "Schedule", "nr": "RSVP", "nl": "Love"}, "ar": {"title": "عمر ورنا – دعوة زفاف", "sw": "EN", "names": "عمر <span>&amp;</span> رنا", "scr": "مرّر لأسفل", "inv": "أنتم مدعوون", "op": "افتح الدعوة", "sk": "تخطي", "kk": "سنتزوج بإذن الله!", "dt": "الثلاثاء · ١ ديسمبر ٢٠٢٦", "sub1": "يتشرف عمر ورنا وعائلتاهما<br>بدعوتكم لحضور حفل زفافهما.", "sd": "احفظوا الموعد", "bigd": "١", "mon": "ديسمبر ٢٠٢٦", "tm1": "الثلاثاء · ٦:٣٠ مساءً", "d1": "أيام", "h1": "ساعات", "cm": "دقائق", "s1": "ثواني", "vn": "المكان", "vname": "دار القوات الجوية", "vcity": "قاعة حياة", "maps": "افتح في الخرائط", "dc": "الزي", "dcs": "كلاسيك أنيق", "dcsub": "الألوان الكلاسيكية مرحّب بها", "day": "اليوم", "sch": "جدول الحفل", "t1": "٦:٣٠ م", "t2": "٧:٠٠ م", "t3": "٨:٠٠ م", "t4": "٩:٠٠ م", "t5": "١١:٠٠ م", "a1": "وصول الضيوف", "a2": "الحفل", "a3": "المشروبات", "a4": "العشاء", "a5": "الرقص", "ttl": "هل ستشاركوننا فرحتنا؟", "yn": "اسمك", "fn": "الاسم بالكامل", "yes": "بكل سرور سأحضر", "no": "للأسف أعتذر", "ng": "عدد الحضور", "nn": "رسالة للعروسين (اختياري)", "err": "من فضلك اكتب اسمك لنعرف من يرد.", "send": "إرسال الرد", "ty": "شكرًا لك", "nt": "كلمة منا", "wl": "بكل حبنا", "lm1": "من بين كل الأماكن التي كان يمكن أن نكون فيها، وجدنا بعضنا، وصار كل شيء عادي جميلًا.", "lm2": "شكرًا لأنكم جزء من الحكاية التي أوصلتنا إلى هنا، ولوقوفكم بجانبنا ونحن نبدأ فصلنا الجديد.", "lm3": "حبكم هو أجمل هدية يمكن أن نطلبها. لا يمكننا الانتظار لنحتفل معكم.", "nh": "الرئيسية", "nd": "الموعد", "nv": "المكان", "ns": "الجدول", "nr": "الحضور", "nl": "كلمة"}};
-D.en.asl='Auto-scroll on/off';D.ar.asl='تشغيل/إيقاف السكرول التلقائي';
+D.en.sending='Sending…';D.ar.sending='جارٍ الإرسال…';D.en.err2='We couldn’t send your reply. Please check your connection and try again.';D.ar.err2='تعذّر إرسال ردك. تأكد من الاتصال بالإنترنت وحاول مرة أخرى.';D.en.asl='Auto-scroll on/off';D.ar.asl='تشغيل/إيقاف السكرول التلقائي';
 function apply(){var d=D[lang],h=document.documentElement;h.lang=lang;h.dir=lang==='ar'?'rtl':'ltr';
   [].forEach.call(document.querySelectorAll('[data-i]'),function(e){var v=d[e.dataset.i];if(v!=null)e.innerHTML=v});
   [].forEach.call(document.querySelectorAll('[data-p]'),function(e){e.placeholder=d[e.dataset.p]});
   [].forEach.call(document.querySelectorAll('.nm,.sg'),function(e){e.innerHTML=d.names});
-  document.title=d.title;asb.setAttribute('aria-label',d.asl);$('lang').textContent=d.sw;tick()}
+  document.title=d.title;if(sent)$('tm').textContent=tmText();asb.setAttribute('aria-label',d.asl);$('lang').textContent=d.sw;tick()}
 $('lang').onclick=function(){lang=lang==='ar'?'en':'ar';apply()};
 apply();
 })();
